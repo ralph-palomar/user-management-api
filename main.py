@@ -18,6 +18,14 @@ def preflight():
     return create_response({}), 200
 
 
+@app.route('/user-management/api/v1/users/all', methods=['GET'])
+def get_all_users():
+    limit = int(request.args.get('limit')) if request.args.get('limit') is not None else 10
+    offset = int(request.args.get('offset')) if request.args.get('offset') is not None else 0
+    response_payload = list(m_col.find().limit(limit).skip(offset))
+    return create_response(response_payload, deleted_keys=['_id', 'password']), 200
+
+
 @app.route('/user-management/api/v1/users', methods=['GET'])
 def get_users():
     input_password = request.headers.get('password')
@@ -57,19 +65,31 @@ def create_user():
     else:
         input_password = payload['password']
         payload['password'] = cipher_suite.encrypt(bytes(input_password, 'utf8'))
-        insert_result = m_col.insert_one(payload)
+        m_col.insert_one(payload)
         response_payload = {}
 
     return create_response(response_payload), 200
 
 
-def create_response(response_payload):
-    try:
-        del response_payload['_id']
-    except KeyError:
-        pass
+def create_response(response_payload, deleted_keys=['_id']):
+    if not isinstance(response_payload, list):
+        for k in deleted_keys:
+            delete_key(response_payload, k)
+    else:
+        for response in response_payload:
+            for k in deleted_keys:
+                delete_key(response, k)
+
     response = jsonify(response_payload)
     response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
     response.headers['Access-Control-Allow-Headers'] = 'email,password,Content-Type,Authorization'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, OPTIONS'
     return response
+
+
+def delete_key(obj, key_name):
+    try:
+        del obj[key_name]
+    except KeyError:
+        pass
+
