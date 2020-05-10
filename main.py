@@ -69,7 +69,7 @@ def create_user():
         input_password = payload['password']
         payload['password'] = cipher_suite.encrypt(bytes(input_password, 'utf8'))
         m_col.insert_one(payload)
-        response_payload = {}
+        response_payload = {"success": True}
 
     return create_response(response_payload), 200
 
