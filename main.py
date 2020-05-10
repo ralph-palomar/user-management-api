@@ -14,7 +14,10 @@ cipher_suite = Fernet(key)
 
 
 @app.route('/user-management/api/v1/users', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/basicInfo', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/illnesses', methods=['OPTIONS'])
 def preflight():
+    print("preflight request")
     return create_response({}), 200
 
 
@@ -71,6 +74,66 @@ def create_user():
     return create_response(response_payload), 200
 
 
+@app.route('/user-management/api/v1/basicInfo', methods=['POST'])
+def create_basic_info():
+    payload = request.json
+    m_query = {
+        "id": payload['id']
+    }
+    m_db['basic_info'].update_one(m_query, {
+       "$set": payload
+    }, upsert=True)
+    response_payload = {}
+
+    return create_response(response_payload), 200
+
+
+@app.route('/user-management/api/v1/illnesses', methods=['POST'])
+def create_illnesses():
+    payload = request.json
+    m_query = {
+        "id": payload['id']
+    }
+    m_db['illnesses'].update_one(m_query, {
+       "$set": payload
+    }, upsert=True)
+    response_payload = {}
+
+    return create_response(response_payload), 200
+
+
+@app.route('/user-management/api/v1/basicInfo', methods=['GET'])
+def get_basic_info():
+    m_query = {
+        "id": request.args.get('id')
+    }
+    result = m_db['basic_info'].find_one(m_query)
+    if result is not None:
+        response_payload = result
+    else:
+        response_payload = {
+            "error": "No record found"
+        }
+
+    return create_response(response_payload), 200
+
+
+@app.route('/user-management/api/v1/illnesses', methods=['GET'])
+def get_illnesses():
+    m_query = {
+        "id": request.args.get('id')
+    }
+    result = m_db['illnesses'].find_one(m_query)
+    if result is not None:
+        response_payload = result
+    else:
+        response_payload = {
+            "error": "No record found"
+        }
+
+    return create_response(response_payload), 200
+
+
 def create_response(response_payload, deleted_keys=['_id']):
     if not isinstance(response_payload, list):
         for k in deleted_keys:
@@ -81,7 +144,7 @@ def create_response(response_payload, deleted_keys=['_id']):
                 delete_key(response, k)
 
     response = jsonify(response_payload)
-    response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+    response.headers['Access-Control-Allow-Origin'] = 'http://192.168.1.100:8080'
     response.headers['Access-Control-Allow-Headers'] = 'email,password,Content-Type,Authorization'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, OPTIONS'
     return response
