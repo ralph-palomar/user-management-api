@@ -145,7 +145,7 @@ def create_response(response_payload, deleted_keys=['_id']):
                 delete_key(response, k)
 
     response = jsonify(response_payload)
-    response.headers['Access-Control-Allow-Origin'] = 'http://192.168.1.100:8080'
+    response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
     response.headers['Access-Control-Allow-Headers'] = 'email,password,Content-Type,Authorization'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, OPTIONS'
     return response
