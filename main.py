@@ -1,9 +1,10 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from cryptography.fernet import Fernet
 from waitress import serve
 import pymongo
 import os
 import base64
+from functools import wraps
 
 app = Flask(__name__)
 
@@ -12,6 +13,17 @@ m_db = m_client['test']
 m_col = m_db['users']
 key = base64.b64encode(bytes(os.environ['SECRET_KEY'], 'utf8'))
 cipher_suite = Fernet(key)
+hostname = os.environ['ALLOWED_ORIGIN']
+
+
+def requires_client_credentials(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not is_authenticated(auth.username, auth.password):
+            return unauthorized()
+        return func(*args, **kwargs)
+    return wrapper
 
 
 @app.route('/user-management/api/v1/users', methods=['OPTIONS'])
@@ -31,6 +43,7 @@ def get_all_users():
 
 
 @app.route('/user-management/api/v1/users', methods=['GET'])
+@requires_client_credentials
 def get_users():
     input_password = request.headers.get('password')
     m_query = {
@@ -156,6 +169,19 @@ def delete_key(obj, key_name):
         del obj[key_name]
     except KeyError:
         pass
+
+
+def unauthorized():
+    return Response(status=401)
+
+
+def is_authenticated(username, password):
+    m_query = {
+        "client_id": username,
+        "client_secret": password
+    }
+    result = m_db['client_credentials'].find_one(m_query)
+    return result is not None
 
 
 if __name__ == '__main__':
