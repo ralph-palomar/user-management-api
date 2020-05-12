@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from cryptography.fernet import Fernet
+from waitress import serve
 import pymongo
 import os
 import base64
@@ -156,3 +157,6 @@ def delete_key(obj, key_name):
     except KeyError:
         pass
 
+
+if __name__ == '__main__':
+    serve(app, host='0.0.0.0', port=5000)
