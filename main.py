@@ -13,20 +13,20 @@ m_db = m_client['test']
 m_col = m_db['users']
 key = base64.b64encode(bytes(os.environ['SECRET_KEY'], 'utf8'))
 cipher_suite = Fernet(key)
-hostname = os.environ['ALLOWED_ORIGIN']
 
 
-def requires_client_credentials(func):
-    @wraps(func)
+def requires_client_credentials(f):
+    @wraps(f)
     def wrapper(*args, **kwargs):
         auth = request.authorization
         if not auth or not is_authenticated(auth.username, auth.password):
             return unauthorized()
-        return func(*args, **kwargs)
+        return f(*args, **kwargs)
     return wrapper
 
 
 @app.route('/user-management/api/v1/users', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/users/all', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/basicInfo', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/illnesses', methods=['OPTIONS'])
 def preflight():
@@ -35,6 +35,7 @@ def preflight():
 
 
 @app.route('/user-management/api/v1/users/all', methods=['GET'])
+@requires_client_credentials
 def get_all_users():
     limit = int(request.args.get('limit')) if request.args.get('limit') is not None else 10
     offset = int(request.args.get('offset')) if request.args.get('offset') is not None else 0
@@ -69,6 +70,7 @@ def get_users():
 
 
 @app.route('/user-management/api/v1/users', methods=['POST'])
+@requires_client_credentials
 def create_user():
     payload = request.json
     m_query = {
@@ -89,6 +91,7 @@ def create_user():
 
 
 @app.route('/user-management/api/v1/basicInfo', methods=['POST'])
+@requires_client_credentials
 def create_basic_info():
     payload = request.json
     m_query = {
@@ -103,6 +106,7 @@ def create_basic_info():
 
 
 @app.route('/user-management/api/v1/illnesses', methods=['POST'])
+@requires_client_credentials
 def create_illnesses():
     payload = request.json
     m_query = {
@@ -117,6 +121,7 @@ def create_illnesses():
 
 
 @app.route('/user-management/api/v1/basicInfo', methods=['GET'])
+@requires_client_credentials
 def get_basic_info():
     m_query = {
         "id": request.args.get('id')
@@ -133,6 +138,7 @@ def get_basic_info():
 
 
 @app.route('/user-management/api/v1/illnesses', methods=['GET'])
+@requires_client_credentials
 def get_illnesses():
     m_query = {
         "id": request.args.get('id')
@@ -158,7 +164,7 @@ def create_response(response_payload, deleted_keys=['_id']):
                 delete_key(response, k)
 
     response = jsonify(response_payload)
-    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Origin'] = os.environ['ALLOWED_ORIGIN']
     response.headers['Access-Control-Allow-Headers'] = 'email,password,Content-Type,Authorization'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, OPTIONS'
     return response
@@ -172,7 +178,7 @@ def delete_key(obj, key_name):
 
 
 def unauthorized():
-    return Response(status=401)
+    return create_response({}), 401
 
 
 def is_authenticated(username, password):
