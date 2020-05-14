@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify
 from cryptography.fernet import Fernet
 from waitress import serve
 import pymongo
