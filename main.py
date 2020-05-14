@@ -10,7 +10,6 @@ app = Flask(__name__)
 
 m_client = pymongo.MongoClient('mongodb://localhost:27017/')
 m_db = m_client['test']
-m_col = m_db['users']
 key = base64.b64encode(bytes(os.environ['SECRET_KEY'], 'utf8'))
 cipher_suite = Fernet(key)
 
@@ -29,8 +28,8 @@ def requires_client_credentials(f):
 @app.route('/user-management/api/v1/users/all', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/basicInfo', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/illnesses', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/medications', methods=['OPTIONS'])
 def preflight():
-    print("preflight request")
     return create_response({}), 200
 
 
@@ -39,7 +38,7 @@ def preflight():
 def get_all_users():
     limit = int(request.args.get('limit')) if request.args.get('limit') is not None else 10
     offset = int(request.args.get('offset')) if request.args.get('offset') is not None else 0
-    response_payload = list(m_col.find().limit(limit).skip(offset))
+    response_payload = list(m_db['users'].find().limit(limit).skip(offset))
     return create_response(response_payload, deleted_keys=['_id', 'password']), 200
 
 
@@ -51,7 +50,7 @@ def get_users():
         "email": request.headers.get('email'),
         "enabled": True
     }
-    result = m_col.find_one(m_query)
+    result = m_db['users'].find_one(m_query)
     if result is not None:
         result_password = str(cipher_suite.decrypt(result['password']), 'utf8')
         if input_password != result_password:
@@ -65,7 +64,6 @@ def get_users():
         response_payload = {
             "error": "Account does not exist"
         }
-
     return create_response(response_payload), 200
 
 
@@ -76,7 +74,7 @@ def create_user():
     m_query = {
         "email": payload['email']
     }
-    result = m_col.find_one(m_query)
+    result = m_db['users'].find_one(m_query)
     if result is not None:
         response_payload = {
             "error": "Account already exists"
@@ -84,74 +82,77 @@ def create_user():
     else:
         input_password = payload['password']
         payload['password'] = cipher_suite.encrypt(bytes(input_password, 'utf8'))
-        m_col.insert_one(payload)
+        m_db['users'].insert_one(payload)
         response_payload = {"success": True}
-
     return create_response(response_payload), 200
 
 
 @app.route('/user-management/api/v1/basicInfo', methods=['POST'])
 @requires_client_credentials
 def create_basic_info():
-    payload = request.json
-    m_query = {
-        "id": payload['id']
-    }
-    m_db['basic_info'].update_one(m_query, {
-       "$set": payload
-    }, upsert=True)
+    update_or_insert_data(request.json, 'basic_info')
     response_payload = {}
-
     return create_response(response_payload), 200
 
 
 @app.route('/user-management/api/v1/illnesses', methods=['POST'])
 @requires_client_credentials
 def create_illnesses():
-    payload = request.json
+    update_or_insert_data(request.json, 'illnesses')
+    response_payload = {}
+    return create_response(response_payload), 200
+
+
+@app.route('/user-management/api/v1/medications', methods=['POST'])
+@requires_client_credentials
+def create_medications():
+    update_or_insert_data(request.json, 'medications')
+    response_payload = {}
+    return create_response(response_payload), 200
+
+
+def update_or_insert_data(payload, collection):
     m_query = {
         "id": payload['id']
     }
-    m_db['illnesses'].update_one(m_query, {
+    m_db[collection].update_one(m_query, {
        "$set": payload
     }, upsert=True)
-    response_payload = {}
-
-    return create_response(response_payload), 200
 
 
 @app.route('/user-management/api/v1/basicInfo', methods=['GET'])
 @requires_client_credentials
 def get_basic_info():
-    m_query = {
-        "id": request.args.get('id')
-    }
-    result = m_db['basic_info'].find_one(m_query)
-    if result is not None:
-        response_payload = result
-    else:
-        response_payload = {
-            "error": "No record found"
-        }
-
+    response_payload = query_data('basic_info')
     return create_response(response_payload), 200
 
 
 @app.route('/user-management/api/v1/illnesses', methods=['GET'])
 @requires_client_credentials
 def get_illnesses():
+    response_payload = query_data('illnesses')
+    return create_response(response_payload), 200
+
+
+@app.route('/user-management/api/v1/medications', methods=['GET'])
+@requires_client_credentials
+def get_medications():
+    response_payload = query_data('medications')
+    return create_response(response_payload), 200
+
+
+def query_data(collection):
     m_query = {
         "id": request.args.get('id')
     }
-    result = m_db['illnesses'].find_one(m_query)
+    result = m_db[collection].find_one(m_query)
     if result is not None:
         response_payload = result
     else:
         response_payload = {
             "error": "No record found"
         }
-
-    return create_response(response_payload), 200
+    return response_payload
 
 
 def create_response(response_payload, deleted_keys=['_id']):
