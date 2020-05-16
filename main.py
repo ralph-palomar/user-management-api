@@ -29,6 +29,7 @@ def requires_client_credentials(f):
 @app.route('/user-management/api/v1/basicInfo', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/illnesses', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/medications', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/vitalSigns', methods=['OPTIONS'])
 def preflight():
     return create_response({}), 200
 
@@ -138,6 +139,13 @@ def get_illnesses():
 @requires_client_credentials
 def get_medications():
     response_payload = query_data('medications')
+    return create_response(response_payload), 200
+
+
+@app.route('/user-management/api/v1/vitalSigns', methods=['GET'])
+@requires_client_credentials
+def get_vital_signs():
+    response_payload = query_data('vital_signs')
     return create_response(response_payload), 200
 
 
