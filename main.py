@@ -112,6 +112,14 @@ def create_medications():
     return create_response(response_payload), 200
 
 
+@app.route('/user-management/api/v1/vitalSigns', methods=['POST'])
+@requires_client_credentials
+def create_vital_signs():
+    update_or_insert_data(request.json, 'vital_signs')
+    response_payload = {}
+    return create_response(response_payload), 200
+
+
 def update_or_insert_data(payload, collection):
     m_query = {
         "id": payload['id']
