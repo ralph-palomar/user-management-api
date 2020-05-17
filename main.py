@@ -182,8 +182,9 @@ def create_response(response_payload, deleted_keys=['_id']):
 
     response = jsonify(response_payload)
     response.headers['Access-Control-Allow-Origin'] = os.environ['ALLOWED_ORIGIN']
-    response.headers['Access-Control-Allow-Headers'] = 'email,password,Content-Type,Authorization'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'email, password, Authorization, Overwrite, Destination, Content-Type, Depth, User-Agent, Translate, Range, Content-Range, Timeout, X-File-Size, X-Requested-With, If-Modified-Since, X-File-Name, Cache-Control, Location, Lock-Token, If'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS, POST, PUT'
+    response.headers['Access-Control-Max-Age'] = 3600
     return response
 
 
