@@ -30,6 +30,7 @@ def requires_client_credentials(f):
 @app.route('/user-management/api/v1/illnesses', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/medications', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/vitalSigns', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/diet', methods=['OPTIONS'])
 def preflight():
     return create_response({}), 200
 
@@ -120,6 +121,14 @@ def create_vital_signs():
     return create_response(response_payload), 200
 
 
+@app.route('/user-management/api/v1/diet', methods=['POST'])
+@requires_client_credentials
+def create_diet():
+    update_or_insert_data(request.json, 'diet')
+    response_payload = {}
+    return create_response(response_payload), 200
+
+
 def update_or_insert_data(payload, collection):
     m_query = {
         "id": payload['id']
@@ -154,6 +163,13 @@ def get_medications():
 @requires_client_credentials
 def get_vital_signs():
     response_payload = query_data('vital_signs')
+    return create_response(response_payload), 200
+
+
+@app.route('/user-management/api/v1/diet', methods=['GET'])
+@requires_client_credentials
+def get_diet():
+    response_payload = query_data('diet')
     return create_response(response_payload), 200
 
 
