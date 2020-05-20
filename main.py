@@ -9,7 +9,7 @@ from functools import wraps
 app = Flask(__name__)
 
 m_client = pymongo.MongoClient('mongodb://localhost:27017/')
-m_db = m_client['test']
+m_db = m_client[os.environ['DB_NAME']]
 key = base64.b64encode(bytes(os.environ['SECRET_KEY'], 'utf8'))
 cipher_suite = Fernet(key)
 
@@ -31,6 +31,7 @@ def requires_client_credentials(f):
 @app.route('/user-management/api/v1/medications', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/vitalSigns', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/diet', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/others', methods=['OPTIONS'])
 def preflight():
     return create_response({}), 200
 
@@ -129,6 +130,14 @@ def create_diet():
     return create_response(response_payload), 200
 
 
+@app.route('/user-management/api/v1/others', methods=['POST'])
+@requires_client_credentials
+def create_other_questions():
+    update_or_insert_data(request.json, 'other_questions')
+    response_payload = {}
+    return create_response(response_payload), 200
+
+
 def update_or_insert_data(payload, collection):
     m_query = {
         "id": payload['id']
@@ -170,6 +179,13 @@ def get_vital_signs():
 @requires_client_credentials
 def get_diet():
     response_payload = query_data('diet')
+    return create_response(response_payload), 200
+
+
+@app.route('/user-management/api/v1/others', methods=['GET'])
+@requires_client_credentials
+def get_other_questions():
+    response_payload = query_data('other_questions')
     return create_response(response_payload), 200
 
 
