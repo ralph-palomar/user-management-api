@@ -44,6 +44,7 @@ def requires_client_credentials(f):
 
 @app.route('/user-management/api/v1/users', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/users/all', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/users/photo', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/basicInfo', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/illnesses', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/medications', methods=['OPTIONS'])
@@ -62,6 +63,30 @@ def get_all_users():
     offset = int(request.args.get('offset')) if request.args.get('offset') is not None else 0
     response_payload = list(m_db['users'].find().limit(limit).skip(offset))
     return create_response(response_payload, deleted_keys=['_id', 'password']), 200
+
+
+@app.route('/user-management/api/v1/users/photo', methods=['GET'])
+@requires_client_credentials
+@requires_jwt
+def get_user_photo():
+    m_query = {
+        "email": request.args.get('id')
+    }
+    result = m_db['users'].find_one(m_query)
+    if result is not None:
+        try:
+            response_payload = {
+                "picture": result['picture']
+            }
+        except KeyError:
+            response_payload = {
+                "picture": None
+            }
+    else:
+        response_payload = {
+            "error": "No record found"
+        }
+    return create_response(response_payload), 200
 
 
 @app.route('/user-management/api/v1/users', methods=['GET'])
