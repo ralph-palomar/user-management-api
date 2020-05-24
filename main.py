@@ -57,7 +57,6 @@ def preflight():
 
 @app.route('/user-management/api/v1/users/all', methods=['GET'])
 @requires_client_credentials
-@requires_jwt
 def get_all_users():
     limit = int(request.args.get('limit')) if request.args.get('limit') is not None else 10
     offset = int(request.args.get('offset')) if request.args.get('offset') is not None else 0
@@ -67,7 +66,6 @@ def get_all_users():
 
 @app.route('/user-management/api/v1/users/photo', methods=['GET'])
 @requires_client_credentials
-@requires_jwt
 def get_user_photo():
     m_query = {
         "email": request.args.get('id')
@@ -95,7 +93,8 @@ def get_users():
     input_password = request.headers.get('password')
     m_query = {
         "email": request.headers.get('email'),
-        "enabled": True
+        "enabled": True,
+        "thirdPartyLogin": None
     }
     result = m_db['users'].find_one(m_query)
     if result is not None:
@@ -125,7 +124,8 @@ def get_users():
 def create_user():
     payload = request.json
     m_query = {
-        "email": payload['email']
+        "email": payload['email'],
+        "thirdPartyLogin": None
     }
     result = m_db['users'].find_one(m_query)
     if result is not None:
@@ -142,7 +142,6 @@ def create_user():
 
 @app.route('/user-management/api/v1/users', methods=['PUT'])
 @requires_client_credentials
-@requires_jwt
 def update_user():
     update_user_data(request.json)
     response_payload = {}
@@ -151,7 +150,6 @@ def update_user():
 
 @app.route('/user-management/api/v1/basicInfo', methods=['POST'])
 @requires_client_credentials
-@requires_jwt
 def create_basic_info():
     update_or_insert_data(request.json, 'basic_info')
     response_payload = {}
@@ -160,7 +158,6 @@ def create_basic_info():
 
 @app.route('/user-management/api/v1/illnesses', methods=['POST'])
 @requires_client_credentials
-@requires_jwt
 def create_illnesses():
     update_or_insert_data(request.json, 'illnesses')
     response_payload = {}
@@ -169,7 +166,6 @@ def create_illnesses():
 
 @app.route('/user-management/api/v1/medications', methods=['POST'])
 @requires_client_credentials
-@requires_jwt
 def create_medications():
     update_or_insert_data(request.json, 'medications')
     response_payload = {}
@@ -178,7 +174,6 @@ def create_medications():
 
 @app.route('/user-management/api/v1/vitalSigns', methods=['POST'])
 @requires_client_credentials
-@requires_jwt
 def create_vital_signs():
     update_or_insert_data(request.json, 'vital_signs')
     response_payload = {}
@@ -187,7 +182,6 @@ def create_vital_signs():
 
 @app.route('/user-management/api/v1/diet', methods=['POST'])
 @requires_client_credentials
-@requires_jwt
 def create_diet():
     update_or_insert_data(request.json, 'diet')
     response_payload = {}
@@ -196,7 +190,6 @@ def create_diet():
 
 @app.route('/user-management/api/v1/others', methods=['POST'])
 @requires_client_credentials
-@requires_jwt
 def create_other_questions():
     update_or_insert_data(request.json, 'other_questions')
     response_payload = {}
@@ -223,7 +216,6 @@ def update_user_data(payload):
 
 @app.route('/user-management/api/v1/basicInfo', methods=['GET'])
 @requires_client_credentials
-@requires_jwt
 def get_basic_info():
     response_payload = query_data('basic_info')
     return create_response(response_payload), 200
@@ -231,7 +223,6 @@ def get_basic_info():
 
 @app.route('/user-management/api/v1/illnesses', methods=['GET'])
 @requires_client_credentials
-@requires_jwt
 def get_illnesses():
     response_payload = query_data('illnesses')
     return create_response(response_payload), 200
@@ -239,7 +230,6 @@ def get_illnesses():
 
 @app.route('/user-management/api/v1/medications', methods=['GET'])
 @requires_client_credentials
-@requires_jwt
 def get_medications():
     response_payload = query_data('medications')
     return create_response(response_payload), 200
@@ -247,7 +237,6 @@ def get_medications():
 
 @app.route('/user-management/api/v1/vitalSigns', methods=['GET'])
 @requires_client_credentials
-@requires_jwt
 def get_vital_signs():
     response_payload = query_data('vital_signs')
     return create_response(response_payload), 200
@@ -255,7 +244,6 @@ def get_vital_signs():
 
 @app.route('/user-management/api/v1/diet', methods=['GET'])
 @requires_client_credentials
-@requires_jwt
 def get_diet():
     response_payload = query_data('diet')
     return create_response(response_payload), 200
@@ -263,7 +251,6 @@ def get_diet():
 
 @app.route('/user-management/api/v1/others', methods=['GET'])
 @requires_client_credentials
-@requires_jwt
 def get_other_questions():
     response_payload = query_data('other_questions')
     return create_response(response_payload), 200
