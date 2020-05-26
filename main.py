@@ -1,12 +1,16 @@
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.utils import formatdate
 from flask import Flask, request, jsonify
 from cryptography.fernet import Fernet
 from jwt import InvalidSignatureError, DecodeError
 from waitress import serve
+from functools import wraps
 import pymongo
 import os
 import base64
 import jwt
-from functools import wraps
+import smtplib
 
 app = Flask(__name__)
 
@@ -51,6 +55,7 @@ def requires_client_credentials(f):
 @app.route('/user-management/api/v1/vitalSigns', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/diet', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/others', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/notifications', methods=['OPTIONS'])
 def preflight():
     return create_response({}), 200
 
@@ -254,6 +259,35 @@ def get_diet():
 def get_other_questions():
     response_payload = query_data('other_questions')
     return create_response(response_payload), 200
+
+
+@app.route('/user-management/api/v1/notifications', methods=['POST'])
+@requires_client_credentials
+def send_notification():
+    type_ = request.args.get('type')
+    payload = request.json
+    to = payload['to']
+    fro = payload['from']
+    subject = payload['subject']
+    body = payload['body']
+
+    if type_ == 'simple_email' and to is not None and fro is not None and subject is not None and body is not None:
+        send_email_notification(to, fro, subject, body)
+        return create_response({}), 201
+    else:
+        return create_response({}), 400
+
+
+def send_email_notification(to, fro, subject, body, server='localhost'):
+    msg = MIMEMultipart()
+    msg['From'] = fro
+    msg['To'] = to
+    msg['Date'] = formatdate(localtime=True)
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body))
+    mail_server = smtplib.SMTP(server)
+    mail_server.sendmail(fro, to, msg.as_string())
+    mail_server.close()
 
 
 def query_data(collection):
