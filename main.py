@@ -286,6 +286,7 @@ def send_email_notification(to, fro, subject, body):
     msg['Subject'] = subject
     msg.attach(MIMEText(body))
     mail_server = smtplib.SMTP(os.environ['MAIL_SERVER'])
+    mail_server.starttls()
     mail_server.sendmail(fro, to, msg.as_string())
     mail_server.close()
 
