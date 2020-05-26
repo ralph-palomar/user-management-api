@@ -119,7 +119,7 @@ def get_users():
             response_payload['access_token'] = str(access_token, 'UTF-8')
     else:
         response_payload = {
-            "error": "Account does not exist"
+            "error": "Email address does not exist or may be unverified."
         }
     return create_response(response_payload), 200
 
@@ -135,7 +135,7 @@ def create_user():
     result = m_db['users'].find_one(m_query)
     if result is not None:
         response_payload = {
-            "error": "Account already exists"
+            "error": "Email address has already been registered."
         }
     else:
         input_password = payload['password']
