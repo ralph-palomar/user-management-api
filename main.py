@@ -278,14 +278,14 @@ def send_notification():
         return create_response({}), 400
 
 
-def send_email_notification(to, fro, subject, body, server='localhost'):
+def send_email_notification(to, fro, subject, body):
     msg = MIMEMultipart()
     msg['From'] = fro
     msg['To'] = to
     msg['Date'] = formatdate(localtime=True)
     msg['Subject'] = subject
     msg.attach(MIMEText(body))
-    mail_server = smtplib.SMTP(server)
+    mail_server = smtplib.SMTP(local_hostname='localhost')
     mail_server.sendmail(fro, to, msg.as_string())
     mail_server.close()
 
