@@ -1,9 +1,10 @@
+import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate
 from flask import Flask, request, jsonify
 from cryptography.fernet import Fernet
-from jwt import InvalidSignatureError, DecodeError
+from jwt import InvalidSignatureError, DecodeError, ExpiredSignatureError
 from waitress import serve
 from functools import wraps
 import pymongo
@@ -56,6 +57,8 @@ def requires_client_credentials(f):
 @app.route('/user-management/api/v1/diet', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/others', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/notifications', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/users/resetPwd', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/users/verifyResetPwd', methods=['OPTIONS'])
 def preflight():
     return create_response({}), 200
 
@@ -278,6 +281,47 @@ def send_notification():
         return create_response({}), 400
 
 
+@app.route('/user-management/api/v1/users/resetPwd', methods=['GET'])
+@requires_client_credentials
+def reset_password():
+    email = request.args.get('email')
+    update_user_data({
+        "email": email,
+        "enabled": False
+    })
+    access_token = str(jwt.encode({
+        "exp":  datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        "operation": "resetPwd",
+        "emailAddress": email
+    }, os.environ['SECRET_KEY'], algorithm='HS256'), 'UTF-8')
+    callback_url = os.environ['PUBLIC_URL'] + '/users/verifyResetPwd?code=' + access_token
+    return create_response({
+        "callbackUrl": callback_url
+    }), 200
+
+
+@app.route('/user-management/api/v1/users/verifyResetPwd', methods=['GET'])
+def verify_reset_password():
+    code = request.args.get('code')
+    verified = False
+    email = None
+    try:
+        jwt_payload = jwt.decode(code, os.environ['SECRET_KEY'], algorithms='HS256')
+        if jwt_payload['operation'] == 'resetPwd' and jwt_payload['emailAddress'] is not None:
+            email = jwt_payload['emailAddress']
+            verified = True
+    except ExpiredSignatureError:
+        pass
+    if verified:
+        return create_response({
+            "verified": verified
+        }, redirect_url=os.environ['HOME_PAGE'] + '/changePassword?email=' + email), 301
+    else:
+        return create_response({
+            "verified": verified
+        }), 200
+
+
 def send_email_notification(to, fro, subject, body):
     msg = MIMEMultipart()
     msg['From'] = fro
@@ -305,7 +349,7 @@ def query_data(collection):
     return response_payload
 
 
-def create_response(response_payload, deleted_keys=['_id']):
+def create_response(response_payload, deleted_keys=['_id'], redirect_url=None):
     if not isinstance(response_payload, list):
         for k in deleted_keys:
             delete_key(response_payload, k)
@@ -319,6 +363,8 @@ def create_response(response_payload, deleted_keys=['_id']):
     response.headers['Access-Control-Allow-Headers'] = 'email, password, Authorization, JWT, Overwrite, Destination, Content-Type, Depth, User-Agent, Translate, Range, Content-Range, Timeout, X-File-Size, X-Requested-With, If-Modified-Since, X-File-Name, Cache-Control, Location, Lock-Token, If'
     response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS, POST, PUT'
     response.headers['Access-Control-Max-Age'] = 3600
+    if redirect_url is not None:
+        response.headers['Location'] = redirect_url
     return response
 
 
