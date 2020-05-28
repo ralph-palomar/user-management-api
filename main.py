@@ -34,6 +34,7 @@ def requires_jwt(f):
         except DecodeError:
             return unauthorized()
         return f(*args, **kwargs)
+
     return wrapper
 
 
@@ -44,6 +45,7 @@ def requires_client_credentials(f):
         if not auth or not is_authenticated(auth.username, auth.password):
             return unauthorized()
         return f(*args, **kwargs)
+
     return wrapper
 
 
@@ -151,9 +153,13 @@ def create_user():
 @app.route('/user-management/api/v1/users', methods=['PUT'])
 @requires_client_credentials
 def update_user():
-    update_user_data(request.json)
-    response_payload = {}
-    return create_response(response_payload), 200
+    payload = request.json
+    try:
+        payload['password'] = cipher_suite.encrypt(bytes(payload['password'], 'utf8'))
+    except KeyError:
+        pass
+    update_user_data(payload)
+    return create_response({}), 200
 
 
 @app.route('/user-management/api/v1/basicInfo', methods=['POST'])
@@ -209,7 +215,7 @@ def update_or_insert_data(payload, collection):
         "id": payload['id']
     }
     m_db[collection].update_one(m_query, {
-       "$set": payload
+        "$set": payload
     }, upsert=True)
 
 
@@ -218,7 +224,7 @@ def update_user_data(payload):
         "email": payload['email']
     }
     m_db['users'].update_one(m_query, {
-       "$set": payload
+        "$set": payload
     })
 
 
@@ -290,11 +296,11 @@ def reset_password():
         "enabled": False
     })
     access_token = str(jwt.encode({
-        "exp":  datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1),
         "operation": "resetPwd",
         "emailAddress": email
     }, os.environ['SECRET_KEY'], algorithm='HS256'), 'UTF-8')
-    callback_url = os.environ['PUBLIC_URL'] + '/users/verifyResetPwd?code=' + access_token
+    callback_url = os.environ['HOME_PAGE'] + '/?op=changePassword&email=' + email + '&code=' + access_token
     return create_response({
         "callbackUrl": callback_url
     }), 200
@@ -303,23 +309,17 @@ def reset_password():
 @app.route('/user-management/api/v1/users/verifyResetPwd', methods=['GET'])
 def verify_reset_password():
     code = request.args.get('code')
+    email = request.args.get('email')
     verified = False
-    email = None
     try:
         jwt_payload = jwt.decode(code, os.environ['SECRET_KEY'], algorithms='HS256')
-        if jwt_payload['operation'] == 'resetPwd' and jwt_payload['emailAddress'] is not None:
-            email = jwt_payload['emailAddress']
+        if jwt_payload['operation'] == 'resetPwd' and jwt_payload['emailAddress'] == email:
             verified = True
     except ExpiredSignatureError:
         pass
-    if verified:
-        return create_response({
-            "verified": verified
-        }, redirect_url=os.environ['HOME_PAGE'] + '/changePassword?email=' + email), 301
-    else:
-        return create_response({
-            "verified": verified
-        }), 200
+    return create_response({
+        "verified": verified
+    }), 200
 
 
 def send_email_notification(to, fro, subject, body):
@@ -360,7 +360,8 @@ def create_response(response_payload, deleted_keys=['_id'], redirect_url=None):
 
     response = jsonify(response_payload)
     response.headers['Access-Control-Allow-Origin'] = os.environ['ALLOWED_ORIGIN']
-    response.headers['Access-Control-Allow-Headers'] = 'email, password, Authorization, JWT, Overwrite, Destination, Content-Type, Depth, User-Agent, Translate, Range, Content-Range, Timeout, X-File-Size, X-Requested-With, If-Modified-Since, X-File-Name, Cache-Control, Location, Lock-Token, If'
+    response.headers[
+        'Access-Control-Allow-Headers'] = 'email, password, Authorization, JWT, Overwrite, Destination, Content-Type, Depth, User-Agent, Translate, Range, Content-Range, Timeout, X-File-Size, X-Requested-With, If-Modified-Since, X-File-Name, Cache-Control, Location, Lock-Token, If'
     response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS, POST, PUT'
     response.headers['Access-Control-Max-Age'] = 3600
     if redirect_url is not None:
