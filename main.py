@@ -61,6 +61,7 @@ def requires_client_credentials(f):
 @app.route('/user-management/api/v1/notifications', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/users/resetPwd', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/users/verifyResetPwd', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/users/verify', methods=['OPTIONS'])
 def preflight():
     return create_response({}), 200
 
@@ -126,6 +127,19 @@ def get_users():
         response_payload = {
             "error": "Email address does not exist or may be unverified."
         }
+    return create_response(response_payload), 200
+
+
+@app.route('/user-management/api/v1/users/verify', methods=['GET'])
+@requires_client_credentials
+def get_verify_user_id():
+    m_query = {
+        "email": request.args.get('id')
+    }
+    result = m_db['users'].find_one(m_query)
+    response_payload = {
+        "exists": result is not None
+    }
     return create_response(response_payload), 200
 
 
