@@ -31,6 +31,8 @@ def requires_jwt(f):
             return unauthorized()
         except InvalidSignatureError:
             return unauthorized()
+        except ExpiredSignatureError:
+            return unauthorized()
         except DecodeError:
             return unauthorized()
         return f(*args, **kwargs)
@@ -63,6 +65,8 @@ def requires_client_credentials(f):
 @app.route('/user-management/api/v1/users/verifyResetPwd', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/users/verify', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/users/verifyPwd', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/users/verificationCode', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/users/verifyAccount', methods=['OPTIONS'])
 def preflight():
     return create_response({}), 200
 
@@ -135,7 +139,8 @@ def get_users():
 @requires_client_credentials
 def get_verify_user_id():
     m_query = {
-        "email": request.args.get('id')
+        "email": request.args.get('id'),
+        "enabled": True
     }
     result = m_db['users'].find_one(m_query)
     response_payload = {
@@ -165,8 +170,7 @@ def post_verify_user_pwd():
 def create_user():
     payload = request.json
     m_query = {
-        "email": payload['email'],
-        "thirdPartyLogin": None
+        "email": payload['email']
     }
     result = m_db['users'].find_one(m_query)
     if result is not None:
@@ -250,13 +254,13 @@ def update_or_insert_data(payload, collection):
     }, upsert=True)
 
 
-def update_user_data(payload):
+def update_user_data(payload, to_upsert=False):
     m_query = {
         "email": payload['email']
     }
     m_db['users'].update_one(m_query, {
         "$set": payload
-    })
+    }, upsert=to_upsert)
 
 
 @app.route('/user-management/api/v1/basicInfo', methods=['GET'])
@@ -346,11 +350,52 @@ def verify_reset_password():
         jwt_payload = jwt.decode(code, os.environ['SECRET_KEY'], algorithms='HS256')
         if jwt_payload['operation'] == 'resetPwd' and jwt_payload['emailAddress'] == email:
             verified = True
+    except InvalidSignatureError:
+        pass
     except ExpiredSignatureError:
+        pass
+    except DecodeError:
         pass
     return create_response({
         "verified": verified
     }), 200
+
+
+@app.route('/user-management/api/v1/users/verificationCode', methods=['POST'])
+def obtain_verification_code():
+    payload = request.json
+    payload['exp'] = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+    access_token = str(jwt.encode(payload, os.environ['SECRET_KEY'], algorithm='HS256'), 'UTF-8')
+    callback_url = os.environ['HOME_PAGE'] + '/?op=verifyAccount&email=' + payload['email'] + '&code=' + access_token
+    response_payload = {
+        "callbackUrl": callback_url
+    }
+    return create_response(response_payload), 200
+
+
+@app.route('/user-management/api/v1/users/verifyAccount', methods=['GET'])
+def verify_account():
+    code = request.args.get('code')
+    email = request.args.get('email')
+    create = request.args.get('create')
+    validated = False
+    try:
+        jwt_payload = jwt.decode(code, os.environ['SECRET_KEY'], algorithms='HS256')
+        if jwt_payload is not None and jwt_payload['email'] == email:
+            validated = True
+            if create == "true":
+                delete_key(jwt_payload, 'exp')
+                update_user_data(jwt_payload, to_upsert=True)
+    except InvalidSignatureError:
+        pass
+    except ExpiredSignatureError:
+        pass
+    except DecodeError:
+        pass
+    response_payload = {
+        "validated": validated
+    }
+    return create_response(response_payload), 200
 
 
 def send_email_notification(to, fro, subject, body):
