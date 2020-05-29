@@ -62,6 +62,7 @@ def requires_client_credentials(f):
 @app.route('/user-management/api/v1/users/resetPwd', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/users/verifyResetPwd', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/users/verify', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/users/verifyPwd', methods=['OPTIONS'])
 def preflight():
     return create_response({}), 200
 
@@ -139,6 +140,22 @@ def get_verify_user_id():
     result = m_db['users'].find_one(m_query)
     response_payload = {
         "exists": result is not None
+    }
+    return create_response(response_payload), 200
+
+
+@app.route('/user-management/api/v1/users/verifyPwd', methods=['POST'])
+@requires_client_credentials
+def post_verify_user_pwd():
+    payload = request.json
+    m_query = {
+        "email": payload['email']
+    }
+    result = m_db['users'].find_one(m_query)
+    if result is not None:
+        result_password = str(cipher_suite.decrypt(result['password']), 'utf8')
+    response_payload = {
+        "verified": result is not None and result_password == payload['password']
     }
     return create_response(response_payload), 200
 
