@@ -74,9 +74,10 @@ def preflight():
 @app.route('/user-management/api/v1/users/all', methods=['GET'])
 @requires_client_credentials
 def get_all_users():
-    limit = int(request.args.get('limit')) if request.args.get('limit') is not None else 10
-    offset = int(request.args.get('offset')) if request.args.get('offset') is not None else 0
-    response_payload = list(m_db['users'].find().limit(limit).skip(offset))
+    # limit = int(request.args.get('limit')) if request.args.get('limit') is not None else 10
+    # offset = int(request.args.get('offset')) if request.args.get('offset') is not None else 0
+    response_payload = list(m_db['users'].find().sort('firstname'))
+    # .limit(limit).skip(offset))
     return create_response(response_payload, deleted_keys=['_id', 'password']), 200
 
 
@@ -109,8 +110,7 @@ def get_users():
     input_password = request.headers.get('password')
     m_query = {
         "email": request.headers.get('email'),
-        "enabled": True,
-        "thirdPartyLogin": None
+        "enabled": True
     }
     result = m_db['users'].find_one(m_query)
     if result is not None:
@@ -137,14 +137,15 @@ def get_users():
 
 @app.route('/user-management/api/v1/users/verify', methods=['GET'])
 @requires_client_credentials
-def get_verify_user_id():
+def verify_user_id():
     m_query = {
         "email": request.args.get('id'),
         "enabled": True
     }
     result = m_db['users'].find_one(m_query)
     response_payload = {
-        "exists": result is not None
+        "exists": result is not None,
+        "thirdPartyLogin": result.get('thirdPartyLogin', False)
     }
     return create_response(response_payload), 200
 
