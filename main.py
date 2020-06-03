@@ -18,7 +18,7 @@ import logging
 
 app = Flask(__name__)
 
-m_client = pymongo.MongoClient('mongodb://localhost:27017/')
+m_client = pymongo.MongoClient('mongodb://localhost:27017/', username=os.environ['DB_USER'], password=os.environ['DB_PWD'], authSource=os.environ['DB_NAME'])
 m_db = m_client[os.environ['DB_NAME']]
 key = base64.b64encode(bytes(os.environ['SECRET_KEY'], 'utf8'))
 cipher_suite = Fernet(key)
