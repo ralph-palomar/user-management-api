@@ -577,6 +577,6 @@ def is_authenticated(username, password):
 
 if __name__ == '__main__':
     try:
-        serve(TransLogger(app, logger=logger), host='0.0.0.0', port=5000, threads=8)
+        serve(TransLogger(app, logger=logger), host='0.0.0.0', port=5000, threads=16)
     except Exception as ex:
         logger.exception(ex)
