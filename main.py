@@ -81,6 +81,9 @@ def requires_client_credentials(f):
 @app.route('/user-management/api/v1/users/verifyPwd', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/users/verificationCode', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/users/verifyAccount', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/appointments', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/appointments/verify', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/appointments/byDate', methods=['OPTIONS'])
 def preflight():
     return create_response({}), 200
 
@@ -298,12 +301,70 @@ def create_other_questions():
         logger.exception(e)
 
 
+@app.route('/user-management/api/v1/appointments', methods=['POST'])
+@requires_client_credentials
+def create_appointments():
+    try:
+        update_or_insert_appointment(request.json)
+        response_payload = {}
+        return create_response(response_payload), 200
+    except Exception as e:
+        logger.exception(e)
+
+
+@app.route('/user-management/api/v1/appointments/verify', methods=['GET'])
+@requires_client_credentials
+def verify_appointment_by_date():
+    try:
+        date = request.args.get('date')
+        email = request.args.get('email')
+        m_query = {
+            "resource.date": date,
+            "resource.email": email
+        }
+        result = m_db['appointments'].find_one(m_query)
+        response_payload = {
+            "exists": result is not None
+        }
+        return create_response(response_payload), 200
+    except Exception as e:
+        logger.exception(e)
+
+
+@app.route('/user-management/api/v1/appointments/byDate', methods=['GET'])
+@requires_client_credentials
+def get_all_appointments_by_date():
+    try:
+        date = request.args.get('date')
+        m_query = {
+            "resource.date": date
+        }
+        result = list(m_db['appointments'].find(m_query))
+        response_payload = result
+        return create_response(response_payload), 200
+    except Exception as e:
+        logger.exception(e)
+
+
 def update_or_insert_data(payload, collection):
     try:
         m_query = {
             "id": payload['id']
         }
         m_db[collection].update_one(m_query, {
+            "$set": payload
+        }, upsert=True)
+    except Exception as e:
+        logger.exception(e)
+
+
+def update_or_insert_appointment(payload):
+    try:
+        m_query = {
+            "resource.email": payload['resource']['email'],
+            "resource.date": payload['resource']['date']
+        }
+        m_db['appointments'].update_one(m_query, {
             "$set": payload
         }, upsert=True)
     except Exception as e:
