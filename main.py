@@ -84,6 +84,7 @@ def requires_client_credentials(f):
 @app.route('/user-management/api/v1/appointments', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/appointments/verify', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/appointments/byDate', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/appointments/verifyByStartDate', methods=['OPTIONS'])
 def preflight():
     return create_response({}), 200
 
@@ -321,6 +322,23 @@ def verify_appointment_by_date():
         m_query = {
             "resource.date": date,
             "resource.email": email
+        }
+        result = m_db['appointments'].find_one(m_query)
+        response_payload = {
+            "exists": result is not None
+        }
+        return create_response(response_payload), 200
+    except Exception as e:
+        logger.exception(e)
+
+
+@app.route('/user-management/api/v1/appointments/verifyByStartDate', methods=['GET'])
+@requires_client_credentials
+def verify_appointment_by_start_date():
+    try:
+        start_date = request.args.get('startDate')
+        m_query = {
+            "start": start_date
         }
         result = m_db['appointments'].find_one(m_query)
         response_payload = {
