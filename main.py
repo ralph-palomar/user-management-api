@@ -313,6 +313,37 @@ def create_appointments():
         logger.exception(e)
 
 
+@app.route('/user-management/api/v1/appointments', methods=['PUT'])
+@requires_client_credentials
+def update_appointment():
+    try:
+        m_query = {
+            "resource.date": request.args.get('date'),
+            "resource.email": request.args.get('email')
+        }
+        update_or_insert_appointment(request.json, m_query)
+        response_payload = {}
+        return create_response(response_payload), 200
+    except Exception as e:
+        logger.exception(e)
+
+
+@app.route('/user-management/api/v1/appointments', methods=['GET'])
+@requires_client_credentials
+def get_user_appointments():
+    try:
+        email = request.args.get('email')
+        m_query = {
+            "resource.email": email
+        }
+        result = m_db['appointments'].find(m_query).sort('resource.date')
+        response_payload = list(result)
+        response_payload.sort(key=lambda elem: datetime.datetime.strptime(elem['resource']['date'], '%B %d, %Y'))
+        return create_response(response_payload), 200
+    except Exception as e:
+        logger.exception(e)
+
+
 @app.route('/user-management/api/v1/appointments/verify', methods=['GET'])
 @requires_client_credentials
 def verify_appointment_by_date():
@@ -321,7 +352,8 @@ def verify_appointment_by_date():
         email = request.args.get('email')
         m_query = {
             "resource.date": date,
-            "resource.email": email
+            "resource.email": email,
+            "resource.status": {"$ne": "Cancelled"}
         }
         result = m_db['appointments'].find_one(m_query)
         response_payload = {
@@ -376,12 +408,13 @@ def update_or_insert_data(payload, collection):
         logger.exception(e)
 
 
-def update_or_insert_appointment(payload):
+def update_or_insert_appointment(payload, m_query=None):
     try:
-        m_query = {
-            "resource.email": payload['resource']['email'],
-            "resource.date": payload['resource']['date']
-        }
+        if m_query is None:
+            m_query = {
+                "resource.email": payload['resource']['email'],
+                "resource.date": payload['resource']['date']
+            }
         m_db['appointments'].update_one(m_query, {
             "$set": payload
         }, upsert=True)
