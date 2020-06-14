@@ -399,6 +399,7 @@ def get_all_appointments_by_date():
             "resource.date": date
         }
         appointments = list(m_db['appointments'].find(m_appointments_query))
+        appointments.sort(key=lambda appointment: datetime.datetime.strptime(appointment['start'], '%B %d, %Y %I:%M %p'))
         if len(appointments) != 0:
             email_set = set([appointment['resource']['email'] for appointment in appointments])
             m_users_query = {
