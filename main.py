@@ -18,13 +18,15 @@ import logging
 
 app = Flask(__name__)
 
-m_client = pymongo.MongoClient('mongodb://localhost:27017/', username=os.environ['DB_USER'], password=os.environ['DB_PWD'], authSource=os.environ['DB_NAME'], tlsCertificateKeyFile=os.environ['TLS_CERT'], tlsInsecure=True)
+m_client = pymongo.MongoClient('mongodb://localhost:27017/', username=os.environ['DB_USER'],
+                               password=os.environ['DB_PWD'], authSource=os.environ['DB_NAME'],
+                               tlsCertificateKeyFile=os.environ['TLS_CERT'], tlsInsecure=True)
 m_db = m_client[os.environ['DB_NAME']]
 key = base64.b64encode(bytes(os.environ['SECRET_KEY'], 'utf8'))
 cipher_suite = Fernet(key)
 
 logger = logging.getLogger('waitress')
-handler = RotatingFileHandler(filename='app.log', mode='a', maxBytes=20*1024*1024, backupCount=5)
+handler = RotatingFileHandler(filename='app.log', mode='a', maxBytes=20 * 1024 * 1024, backupCount=5)
 handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(funcName)s (%(lineno)d) %(message)s'))
 logger.addHandler(handler)
 logger.setLevel(logging.ERROR)
@@ -62,6 +64,7 @@ def requires_client_credentials(f):
             return f(*args, **kwargs)
         except Exception as e:
             logger.exception(e)
+
     return wrapper
 
 
@@ -336,7 +339,7 @@ def get_user_appointments():
         m_query = {
             "resource.email": email
         }
-        result = m_db['appointments'].find(m_query).sort('resource.date')
+        result = m_db['appointments'].find(m_query)
         response_payload = list(result)
         response_payload.sort(key=lambda elem: datetime.datetime.strptime(elem['resource']['date'], '%B %d, %Y'))
         return create_response(response_payload), 200
@@ -386,11 +389,36 @@ def verify_appointment_by_start_date():
 def get_all_appointments_by_date():
     try:
         date = request.args.get('date')
-        m_query = {
+        include_cancelled = request.args.get('includeCancelled');
+        m_appointments_query = {
+            "resource.date": date,
+            "resource.status": {
+                "$ne": "Cancelled"
+            }
+        } if include_cancelled is None or not include_cancelled else {
             "resource.date": date
         }
-        result = list(m_db['appointments'].find(m_query))
-        response_payload = result
+        appointments = list(m_db['appointments'].find(m_appointments_query))
+        if len(appointments) != 0:
+            email_set = set([appointment['resource']['email'] for appointment in appointments])
+            m_users_query = {
+                "email": {
+                    "$in": list(email_set)
+                }
+            }
+            users = list(m_db['users'].find(m_users_query))
+            if len(users) != 0:
+                for r in appointments:
+                    selected_user = list(filter(lambda user: user['email'] == r['resource']['email'], users))
+                    if len(selected_user) != 0:
+                        user_detail = map(lambda user:
+                                          {
+                                              "firstname": user['firstname'],
+                                              "lastname": user['lastname'],
+                                              "picture": user['picture']
+                                          }, selected_user)
+                        r['resource']['user'] = list(user_detail)[0]
+        response_payload = appointments
         return create_response(response_payload), 200
     except Exception as e:
         logger.exception(e)
@@ -568,7 +596,8 @@ def obtain_verification_code():
         payload = request.json
         payload['exp'] = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
         access_token = str(jwt.encode(payload, os.environ['SECRET_KEY'], algorithm='HS256'), 'UTF-8')
-        callback_url = os.environ['HOME_PAGE'] + '/?op=verifyAccount&email=' + payload['email'] + '&code=' + access_token
+        callback_url = os.environ['HOME_PAGE'] + '/?op=verifyAccount&email=' + payload[
+            'email'] + '&code=' + access_token
         response_payload = {
             "callbackUrl": callback_url
         }
