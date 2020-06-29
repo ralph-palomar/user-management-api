@@ -87,6 +87,7 @@ def requires_client_credentials(f):
 @app.route('/user-management/api/v1/appointments', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/appointments/verify', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/appointments/byDate', methods=['OPTIONS'])
+@app.route('/user-management/api/v1/appointments/byDateRange', methods=['OPTIONS'])
 @app.route('/user-management/api/v1/appointments/verifyByStartDate', methods=['OPTIONS'])
 def preflight():
     return create_response({}), 200
@@ -397,6 +398,54 @@ def get_all_appointments_by_date():
             }
         } if include_cancelled is None or not include_cancelled else {
             "resource.date": date
+        }
+        appointments = list(m_db['appointments'].find(m_appointments_query))
+        appointments.sort(key=lambda appointment: datetime.datetime.strptime(appointment['start'], '%B %d, %Y %I:%M %p'))
+        if len(appointments) != 0:
+            email_set = set([appointment['resource']['email'] for appointment in appointments])
+            m_users_query = {
+                "email": {
+                    "$in": list(email_set)
+                }
+            }
+            users = list(m_db['users'].find(m_users_query))
+            if len(users) != 0:
+                for r in appointments:
+                    selected_user = list(filter(lambda user: user['email'] == r['resource']['email'], users))
+                    if len(selected_user) != 0:
+                        user_detail = map(lambda user:
+                                          {
+                                              "firstname": user['firstname'],
+                                              "lastname": user['lastname'],
+                                              "picture": user['picture']
+                                          }, selected_user)
+                        r['resource']['user'] = list(user_detail)[0]
+        response_payload = appointments
+        return create_response(response_payload), 200
+    except Exception as e:
+        logger.exception(e)
+
+
+@app.route('/user-management/api/v1/appointments/byDateRange', methods=['GET'])
+@requires_client_credentials
+def get_all_appointments_by_date_range():
+    try:
+        from_date = request.args.get('from')
+        to_date = request.args.get('to')
+        include_cancelled = request.args.get('includeCancelled');
+        m_appointments_query = {
+            "resource.isoDate": {
+                "$gte": from_date,
+                "$lte": to_date
+            },
+            "resource.status": {
+                "$ne": "Cancelled"
+            }
+        } if include_cancelled is None or not include_cancelled else {
+            "resource.isoDate": {
+                "$gte": from_date,
+                "$lte": to_date
+            }
         }
         appointments = list(m_db['appointments'].find(m_appointments_query))
         appointments.sort(key=lambda appointment: datetime.datetime.strptime(appointment['start'], '%B %d, %Y %I:%M %p'))
